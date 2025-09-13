@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Send, X, Loader2, Bot, User } from 'lucide-react';
 import { claudeService, ChatMessage } from '@/lib/claudeService';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from '@/hooks/use-toast';
+import { usePlants } from '@/hooks/usePlants';
 
 interface ChatbotProps {
   isOpen: boolean;
@@ -16,13 +17,33 @@ interface ChatbotProps {
 
 export const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content: 'Hello! I\'m your AI assistant for Soil Savvy Suite. I have access to your real-time soil data and plant information, so I can provide personalized advice for your garden. What would you like to know about your plants or soil conditions? 🌱',
-      timestamp: new Date()
+  const { plants } = usePlants();
+  
+  // Generate personalized initial message based on user's plants
+  const getInitialMessage = useCallback(() => {
+    if (plants.length === 0) {
+      return 'Hello! I am your AI assistant for Soil Savvy Suite. I have access to your real-time soil data and can help with plant care advice. Start by adding some plants to get personalized recommendations! 🌱';
+    } else if (plants.length === 1) {
+      return `Hello! I am your AI assistant for Soil Savvy Suite. I can see you have a ${plants[0].commonName} in your garden! I have access to your real-time soil data and can provide personalized advice for your plants. What would you like to know? 🌱`;
+    } else {
+      const plantNames = plants.slice(0, 3).map(p => p.commonName).join(', ');
+      const remaining = plants.length > 3 ? ` and ${plants.length - 3} others` : '';
+      return `Hello! I am your AI assistant for Soil Savvy Suite. I can see you have ${plantNames}${remaining} in your garden! I have access to your real-time soil data and can provide personalized advice for all your plants. What would you like to know? 🌱`;
     }
-  ]);
+  }, [plants]);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  
+  // Update initial message when plants change
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([{
+        role: 'assistant',
+        content: getInitialMessage(),
+        timestamp: new Date()
+      }]);
+    }
+  }, [plants, messages.length, getInitialMessage]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -170,7 +191,12 @@ export const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
                 </Avatar>
                 <div className="bg-gradient-to-br from-gray-50 to-gray-100 text-gray-800 border border-gray-200 rounded-2xl p-3 flex items-center gap-2 shadow-sm">
                   <Loader2 className="h-4 w-4 animate-spin text-green-600" />
-                  <span className="text-sm">Analyzing your soil data...</span>
+                  <span className="text-sm">
+                    {plants.length > 0 
+                      ? `Checking your ${plants.length === 1 ? plants[0].commonName : `${plants.length} plants`} and soil data...`
+                      : 'Analyzing your soil data...'
+                    }
+                  </span>
                   <div className="flex gap-1">
                     <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce"></div>
                     <div className="w-1 h-1 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -189,12 +215,18 @@ export const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose }) => {
               <div className="mb-3">
                 <p className="text-xs text-gray-600 mb-2">💡 Try asking:</p>
                 <div className="flex flex-wrap gap-1">
-                  {[
-                    "How is my soil today?",
-                    "What should I plant next?", 
-                    "Check my plant health",
-                    "Any watering needed?"
-                  ].map((suggestion, index) => (
+                  {(() => {
+                    const baseSuggestions = ["How is my soil today?", "Any watering needed?"];
+                    
+                    if (plants.length === 0) {
+                      return [...baseSuggestions, "What plants grow well in my area?", "How do I add my first plant?"];
+                    } else if (plants.length === 1) {
+                      return [...baseSuggestions, `How is my ${plants[0].commonName}?`, "What nutrients does it need?"];
+                    } else {
+                      const randomPlant = plants[Math.floor(Math.random() * plants.length)];
+                      return [...baseSuggestions, `Check my ${randomPlant.commonName}`, "Which plant needs attention?"];
+                    }
+                  })().map((suggestion, index) => (
                     <button
                       key={index}
                       onClick={() => setInputValue(suggestion)}

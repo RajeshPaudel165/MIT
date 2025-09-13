@@ -62,6 +62,46 @@ const SoilComparison: React.FC<SoilComparisonProps> = ({ plant }) => {
   const [loading, setLoading] = useState(true);
   const [soilData, setSoilData] = useState<SoilData | null>(null);
   const [activeTab, setActiveTab] = useState('nutrients');
+
+  // Helper function to format timestamps
+  const formatTimestamp = (timestamp: Timestamp | Date | number | string | { seconds: number } | null | undefined): string => {
+    if (!timestamp) return 'Unknown';
+    
+    let date: Date;
+    
+    // Check if it's a Firestore Timestamp
+    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
+      date = (timestamp as Timestamp).toDate();
+    } 
+    // Check if it's already a Date object
+    else if (timestamp instanceof Date) {
+      date = timestamp;
+    }
+    // Check if it's a timestamp number
+    else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    }
+    // Check if it's a string that can be parsed as a date
+    else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    }
+    // Check if it has seconds property (Firestore timestamp-like object)
+    else if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+      date = new Date((timestamp as { seconds: number }).seconds * 1000);
+    }
+    else {
+      console.warn('Unknown timestamp format:', timestamp);
+      return 'Invalid Date';
+    }
+    
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date created from timestamp:', timestamp);
+      return 'Invalid Date';
+    }
+    
+    return date.toLocaleString();
+  };
   
   // Fetch the most recent soil data
   const fetchSoilData = async () => {
@@ -468,7 +508,7 @@ const SoilComparison: React.FC<SoilComparisonProps> = ({ plant }) => {
         <div className="text-xs text-muted-foreground pt-2 border-t">
           <p className="flex items-center gap-1">
             <Thermometer className="h-3 w-3" />
-            Last reading: {soilData.timestamp ? new Date(soilData.timestamp.toDate()).toLocaleString() : 'Unknown'}
+            Last reading: {formatTimestamp(soilData.timestamp)}
           </p>
         </div>
       </CardContent>

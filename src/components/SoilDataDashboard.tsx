@@ -163,7 +163,7 @@ export function SoilDataDashboard() {
     // Setup interval for auto-refresh (every 5 seconds)
     intervalRef.current = window.setInterval(() => {
       fetchSoilData();
-    }, 5000); 
+    }, 1); 
     
     // Cleanup function
     return () => {
@@ -173,10 +173,42 @@ export function SoilDataDashboard() {
     };
   }, [plants, fetchSoilData, fetchHistoricalData]);
 
-  const formatDate = (timestamp: Timestamp) => {
+  const formatDate = (timestamp: Timestamp | Date | number | string | { seconds: number } | null | undefined) => {
     if (!timestamp) return 'Unknown';
     
-    const date = timestamp.toDate();
+    let date: Date;
+    
+    // Check if it's a Firestore Timestamp
+    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp && typeof timestamp.toDate === 'function') {
+      date = (timestamp as Timestamp).toDate();
+    } 
+    // Check if it's already a Date object
+    else if (timestamp instanceof Date) {
+      date = timestamp;
+    }
+    // Check if it's a timestamp number
+    else if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    }
+    // Check if it's a string that can be parsed as a date
+    else if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+    }
+    // Check if it has seconds property (Firestore timestamp-like object)
+    else if (timestamp && timestamp.seconds) {
+      date = new Date(timestamp.seconds * 1000);
+    }
+    else {
+      console.warn('Unknown timestamp format:', timestamp);
+      return 'Invalid Date';
+    }
+    
+    // Validate the date
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date created from timestamp:', timestamp);
+      return 'Invalid Date';
+    }
+    
     return new Intl.DateTimeFormat('en-US', {
       dateStyle: 'medium',
       timeStyle: 'short'

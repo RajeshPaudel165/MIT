@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import HeroBackground from "@/components/HeroBackground";
 import { Plus, Leaf, BarChart3, Sprout, Loader2, Trash2 } from "lucide-react";
 import { FlowerIcon } from "lucide-react";
 import {
@@ -28,12 +29,13 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      <HeroBackground />
       {/* Header */}
       <Navbar showBackButton={false} />
 
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+      <main className="max-w-6xl mx-auto px-4 py-8 relative z-10">
         <div className="space-y-8">
           {/* Welcome Section */}
           <div className="text-center space-y-4">
