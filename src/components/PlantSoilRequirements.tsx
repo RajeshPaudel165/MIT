@@ -1,0 +1,823 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Leaf, Loader2, AlertTriangle, Droplets, FileImage, UploadCloud } from 'lucide-react';
+import { usePlants, Plant } from '@/hooks/usePlants';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+// The Plant.id API key
+const PLANT_ID_API_KEY = '2scIUR4L0WSZ1yx3y80INUoQ17znDr4KfCVrfyCQtKviOQC7Fd';
+
+// Interface for soil requirements data
+interface SoilRequirements {
+  ph: {
+    min: number;
+    max: number;
+    optimal: number;
+  };
+  nitrogen: {
+    level: string;
+    value: number;
+  };
+  phosphorus: {
+    level: string;
+    value: number;
+  };
+  potassium: {
+    level: string;
+    value: number;
+  };
+  moisture: {
+    level: string;
+    value: number;
+  };
+  temperature: {
+    min: number;
+    max: number;
+    optimal: number;
+  };
+}
+
+interface PlantIdentificationResult {
+  id: string;
+  name: string;
+  commonNames: string[];
+  scientificName: string;
+  probability: number;
+  family: string;
+  genus: string;
+}
+
+export function PlantSoilRequirements() {
+  const { plants, loading: plantsLoading } = usePlants();
+  const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
+  const [soilRequirements, setSoilRequirements] = useState<SoilRequirements | null>(null);
+  const [identificationResults, setIdentificationResults] = useState<PlantIdentificationResult[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const { toast } = useToast();
+
+  // Function to handle plant selection
+  const handlePlantSelect = (value: string) => {
+    const plant = plants.find(p => p.id === value);
+    if (plant) {
+      setSelectedPlant(plant);
+      fetchPlantSoilRequirements(plant);
+    }
+  };
+
+  // Function to handle file selection
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file);
+        
+        // Create an image preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImagePreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+        
+        // Reset previous results
+        setIdentificationResults([]);
+        setSoilRequirements(null);
+        setError(null);
+      } else {
+        toast({
+          title: "Invalid file type",
+          description: "Please select an image file (jpg, png, etc.)",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  // Function to identify plant from image using Plant.id API
+  const identifyPlant = async () => {
+    if (!selectedFile) return;
+    
+    setLoading(true);
+    setError(null);
+    setUploadProgress(0);
+    
+    try {
+      // Convert image file to base64
+      const base64Image = await fileToBase64(selectedFile);
+      
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+      
+      // Plant.id API endpoint
+      const apiUrl = 'https://api.plant.id/v2/identify';
+      
+      // Request body
+      const requestData = {
+        images: [base64Image.split(',')[1]],
+        plant_details: ["common_names", "taxonomy", "url", "wiki_description", "edible_parts", "watering", "propagation_methods"],
+      };
+      
+      // Make API request
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Api-Key': PLANT_ID_API_KEY
+        },
+        body: JSON.stringify(requestData)
+      });
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} - ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.suggestions && data.suggestions.length > 0) {
+        // Process identification results
+        const results = data.suggestions.map((suggestion: {
+          id: string;
+          plant_name: string;
+          plant_details?: {
+            common_names?: string[];
+            scientific_name?: string;
+            taxonomy?: {
+              family?: string;
+              genus?: string;
+            };
+          };
+          probability: number;
+        }) => ({
+          id: suggestion.id,
+          name: suggestion.plant_name,
+          commonNames: suggestion.plant_details?.common_names || [],
+          scientificName: suggestion.plant_details?.scientific_name || suggestion.plant_name,
+          probability: suggestion.probability,
+          family: suggestion.plant_details?.taxonomy?.family || 'Unknown',
+          genus: suggestion.plant_details?.taxonomy?.genus || 'Unknown'
+        }));
+        
+        setIdentificationResults(results);
+        
+        // Get soil requirements for the top result
+        if (results.length > 0) {
+          generateSoilRequirements(results[0]);
+        }
+      } else {
+        setError("No plants identified in the image. Try a clearer picture.");
+      }
+    } catch (err) {
+      console.error('Error identifying plant:', err);
+      setError("Failed to identify plant. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to identify plant. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+      setTimeout(() => {
+        setUploadProgress(0);
+      }, 1000);
+    }
+  };
+
+  // Function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  };
+
+  // Function to fetch soil requirements for a plant
+  const fetchPlantSoilRequirements = (plant: Plant) => {
+    setLoading(true);
+    setError(null);
+    
+    // In a real app, you would fetch this data from an API
+    // For now, we'll generate mock data based on the plant's properties
+    setTimeout(() => {
+      try {
+        generateSoilRequirementsFromPlantData(plant);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error generating soil requirements:', err);
+        setError("Failed to get soil requirements. Please try again.");
+        setLoading(false);
+      }
+    }, 1000);
+  };
+
+  // Generate soil requirements data from plant's properties
+  const generateSoilRequirementsFromPlantData = (plant: Plant) => {
+    // This is a simplified approach - in a real app, you'd fetch actual data
+    const wateringScheduleMap: Record<string, number> = {
+      'daily': 70,
+      'weekly': 50,
+      'monthly': 30
+    };
+    
+    const moistureValue = wateringScheduleMap[plant.wateringSchedule || 'weekly'] || 50;
+    
+    const sunlightMap: Record<string, { n: number, p: number, k: number }> = {
+      'full_sun': { n: 60, p: 50, k: 70 },
+      'part_sun': { n: 50, p: 45, k: 55 },
+      'part_shade': { n: 40, p: 40, k: 45 },
+      'full_shade': { n: 30, p: 30, k: 40 }
+    };
+    
+    const nutrients = sunlightMap[plant.sunlightPreference || 'full_sun'] || { n: 50, p: 50, k: 50 };
+    
+    const requirements: SoilRequirements = {
+      ph: {
+        min: 5.5,
+        max: 7.5,
+        optimal: 6.5
+      },
+      nitrogen: {
+        level: getNutrientLevel(nutrients.n),
+        value: nutrients.n
+      },
+      phosphorus: {
+        level: getNutrientLevel(nutrients.p),
+        value: nutrients.p
+      },
+      potassium: {
+        level: getNutrientLevel(nutrients.k),
+        value: nutrients.k
+      },
+      moisture: {
+        level: getMoistureLevel(moistureValue),
+        value: moistureValue
+      },
+      temperature: {
+        min: 15,
+        max: 28,
+        optimal: 22
+      }
+    };
+    
+    setSoilRequirements(requirements);
+  };
+
+  // Generate more realistic soil requirements from Plant.id results
+  const generateSoilRequirements = (plantInfo: PlantIdentificationResult) => {
+    // This function would ideally call another API to get actual soil requirements
+    // For now, we'll generate synthetic data based on the plant's taxonomy
+    
+    // pH adjustments based on plant family
+    let phMin = 5.5;
+    let phMax = 7.5;
+    let phOptimal = 6.5;
+    
+    const family = plantInfo.family.toLowerCase();
+    
+    // Adjust pH based on family
+    if (family.includes('ericaceae')) { // Blueberries, rhododendrons, etc.
+      phMin = 4.5;
+      phMax = 6.0;
+      phOptimal = 5.5;
+    } else if (family.includes('fabaceae')) { // Legumes
+      phMin = 6.0;
+      phMax = 7.5;
+      phOptimal = 6.8;
+    } else if (family.includes('rosaceae')) { // Roses, apples, etc.
+      phMin = 6.0;
+      phMax = 7.5;
+      phOptimal = 6.5;
+    }
+    
+    // Nutrient level adjustments based on genus and family
+    const genus = plantInfo.genus.toLowerCase();
+    
+    // Base values
+    let nitrogenValue = 50;
+    let phosphorusValue = 50;
+    let potassiumValue = 50;
+    let moistureValue = 50;
+    
+    // Adjust nitrogen needs
+    if (family.includes('asteraceae') || family.includes('brassicaceae')) {
+      nitrogenValue = 70; // High nitrogen needs
+    } else if (genus.includes('lavandula') || genus.includes('rosmarinus')) {
+      nitrogenValue = 30; // Low nitrogen needs
+    }
+    
+    // Adjust phosphorus needs
+    if (family.includes('solanaceae') || genus.includes('rosa')) {
+      phosphorusValue = 65; // Higher phosphorus for flowering/fruiting
+    }
+    
+    // Adjust potassium needs
+    if (family.includes('cucurbitaceae') || family.includes('solanaceae')) {
+      potassiumValue = 75; // Higher potassium for fruits
+    }
+    
+    // Adjust moisture needs
+    if (genus.includes('cactus') || genus.includes('aloe') || genus.includes('sedum')) {
+      moistureValue = 20; // Dry conditions
+    } else if (genus.includes('fern') || genus.includes('hydrangea')) {
+      moistureValue = 80; // Moist conditions
+    }
+    
+    const requirements: SoilRequirements = {
+      ph: {
+        min: phMin,
+        max: phMax,
+        optimal: phOptimal
+      },
+      nitrogen: {
+        level: getNutrientLevel(nitrogenValue),
+        value: nitrogenValue
+      },
+      phosphorus: {
+        level: getNutrientLevel(phosphorusValue),
+        value: phosphorusValue
+      },
+      potassium: {
+        level: getNutrientLevel(potassiumValue),
+        value: potassiumValue
+      },
+      moisture: {
+        level: getMoistureLevel(moistureValue),
+        value: moistureValue
+      },
+      temperature: {
+        min: 15,
+        max: 28,
+        optimal: 22
+      }
+    };
+    
+    setSoilRequirements(requirements);
+  };
+
+  // Helper function to get nutrient level description
+  const getNutrientLevel = (value: number): string => {
+    if (value >= 70) return 'High';
+    if (value >= 40) return 'Medium';
+    return 'Low';
+  };
+
+  // Helper function to get moisture level description
+  const getMoistureLevel = (value: number): string => {
+    if (value >= 70) return 'High';
+    if (value >= 40) return 'Medium';
+    return 'Low';
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-gradient-to-r from-primary/5 to-primary/10 p-4 rounded-lg">
+        <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+          <Leaf className="h-6 w-6 text-primary" />
+          Plant Soil Requirements
+        </h2>
+        <p className="text-muted-foreground mt-1">
+          View optimal soil conditions for your plants or identify new plants to get their requirements
+        </p>
+      </div>
+      
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Plant selection section */}
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Leaf className="h-5 w-5 text-primary" />
+              Select from Your Garden
+            </CardTitle>
+            <CardDescription>
+              Choose a plant from your garden to view its soil requirements
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {plantsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : plants.length === 0 ? (
+              <div className="text-center py-8 space-y-4">
+                <Leaf className="h-12 w-12 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="font-medium">No plants in your garden</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Add plants to your garden to view their soil requirements
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <Select onValueChange={handlePlantSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a plant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plants.map((plant) => (
+                    <SelectItem key={plant.id} value={plant.id}>
+                      {plant.commonName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </CardContent>
+        </Card>
+        
+        {/* Plant identification section */}
+        <Card className="overflow-hidden">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileImage className="h-5 w-5 text-primary" />
+              Identify a Plant
+            </CardTitle>
+            <CardDescription>
+              Upload a photo to identify a plant and get its soil requirements
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center">
+                <label htmlFor="plant-image-upload" className="cursor-pointer">
+                  <div className={cn(
+                    "border-2 border-dashed rounded-lg p-4 w-full transition-all",
+                    "hover:border-primary/50 hover:bg-primary/5",
+                    "flex flex-col items-center justify-center gap-2",
+                    imagePreview ? "h-[200px]" : "h-[150px]"
+                  )}>
+                    {imagePreview ? (
+                      <div className="relative w-full h-full">
+                        <img 
+                          src={imagePreview} 
+                          alt="Plant preview" 
+                          className="w-full h-full object-contain"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <p className="text-white text-sm font-medium">Click to change</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <UploadCloud className="h-10 w-10 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Click to upload a plant image
+                        </p>
+                      </>
+                    )}
+                  </div>
+                  <input 
+                    id="plant-image-upload" 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                </label>
+              </div>
+              
+              {uploadProgress > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span>Uploading...</span>
+                    <span>{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+              
+              <Button 
+                onClick={identifyPlant} 
+                disabled={!selectedFile || loading}
+                className="w-full"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Leaf className="h-4 w-4 mr-2" />
+                    Identify Plant
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* Error display */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+              <div>
+                <h3 className="font-medium text-red-700">Error</h3>
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Identification results */}
+      {identificationResults.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Identification Results</CardTitle>
+            <CardDescription>
+              Plant identified with {Math.round(identificationResults[0].probability * 100)}% confidence
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-lg font-medium">{identificationResults[0].commonNames[0] || identificationResults[0].name}</h3>
+                  <p className="text-sm text-muted-foreground italic">{identificationResults[0].scientificName}</p>
+                </div>
+                <Badge className="self-start sm:self-auto bg-primary/10 text-primary hover:bg-primary/20 px-3 py-1">
+                  {identificationResults[0].family}
+                </Badge>
+              </div>
+              
+              {identificationResults[0].commonNames.length > 1 && (
+                <div>
+                  <h4 className="text-sm font-medium">Common Names</h4>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {identificationResults[0].commonNames.map((name, index) => (
+                      <Badge key={index} variant="outline" className="bg-secondary/10">
+                        {name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Soil requirements display */}
+      {soilRequirements && (
+        <Card className="overflow-hidden">
+          <CardHeader className="bg-primary/5">
+            <CardTitle className="flex items-center gap-2">
+              <Droplets className="h-5 w-5 text-primary" />
+              Soil Requirements
+            </CardTitle>
+            <CardDescription>
+              {selectedPlant ? `Optimal soil conditions for ${selectedPlant.commonName}` : 
+               identificationResults.length > 0 ? `Estimated requirements for ${identificationResults[0].commonNames[0] || identificationResults[0].name}` : 
+               'Optimal soil conditions'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* pH Level */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="h-6 px-2 font-semibold">pH</Badge>
+                  Soil pH Level
+                </h3>
+                <div className="h-8 w-full bg-muted rounded-full relative">
+                  <div className="absolute inset-0 flex items-center justify-between px-3">
+                    <span className="text-xs font-medium">Acidic</span>
+                    <span className="text-xs font-medium">Neutral</span>
+                    <span className="text-xs font-medium">Alkaline</span>
+                  </div>
+                  <div className="absolute inset-y-0 bg-green-100/40 rounded-full"
+                       style={{ 
+                         left: `${(soilRequirements.ph.min - 3) / 0.07}%`, 
+                         right: `${100 - ((soilRequirements.ph.max - 3) / 0.07)}%` 
+                       }}></div>
+                  <div className="absolute top-full mt-1 w-full flex justify-between text-xs text-muted-foreground">
+                    <span>3</span>
+                    <span>7</span>
+                    <span>10</span>
+                  </div>
+                  <div className="absolute inset-y-0 w-2 bg-primary rounded-full"
+                       style={{ left: `calc(${(soilRequirements.ph.optimal - 3) / 0.07}% - 4px)` }}></div>
+                </div>
+                <p className="text-xs text-muted-foreground pt-3">
+                  Optimal pH: <span className="font-medium">{soilRequirements.ph.optimal}</span> 
+                  (Range: {soilRequirements.ph.min} - {soilRequirements.ph.max})
+                </p>
+              </div>
+              
+              {/* Temperature */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="h-6 px-2 font-semibold">°C</Badge>
+                  Soil Temperature
+                </h3>
+                <div className="h-8 w-full bg-muted rounded-full relative">
+                  <div className="absolute inset-y-0 bg-gradient-to-r from-blue-100 via-green-100 to-red-100 rounded-full"></div>
+                  <div className="absolute inset-y-0 bg-green-100/40 rounded-full"
+                       style={{ 
+                         left: `${(soilRequirements.temperature.min) * 2.5}%`, 
+                         right: `${100 - (soilRequirements.temperature.max * 2.5)}%` 
+                       }}></div>
+                  <div className="absolute top-full mt-1 w-full flex justify-between text-xs text-muted-foreground">
+                    <span>0°C</span>
+                    <span>20°C</span>
+                    <span>40°C</span>
+                  </div>
+                  <div className="absolute inset-y-0 w-2 bg-primary rounded-full"
+                       style={{ left: `calc(${soilRequirements.temperature.optimal * 2.5}% - 4px)` }}></div>
+                </div>
+                <p className="text-xs text-muted-foreground pt-3">
+                  Optimal temperature: <span className="font-medium">{soilRequirements.temperature.optimal}°C</span> 
+                  (Range: {soilRequirements.temperature.min}°C - {soilRequirements.temperature.max}°C)
+                </p>
+              </div>
+            </div>
+            
+            <Separator className="my-6" />
+            
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+              {/* Nitrogen */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="h-6 px-2 font-semibold">N</Badge>
+                  Nitrogen
+                </h3>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" 
+                       style={{ width: `${soilRequirements.nitrogen.value}%` }}></div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Level: <span className="font-medium">{soilRequirements.nitrogen.level}</span>
+                  </p>
+                  <p className="text-xs font-medium">{soilRequirements.nitrogen.value}%</p>
+                </div>
+              </div>
+              
+              {/* Phosphorus */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="h-6 px-2 font-semibold">P</Badge>
+                  Phosphorus
+                </h3>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-orange-500 rounded-full" 
+                       style={{ width: `${soilRequirements.phosphorus.value}%` }}></div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Level: <span className="font-medium">{soilRequirements.phosphorus.level}</span>
+                  </p>
+                  <p className="text-xs font-medium">{soilRequirements.phosphorus.value}%</p>
+                </div>
+              </div>
+              
+              {/* Potassium */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="h-6 px-2 font-semibold">K</Badge>
+                  Potassium
+                </h3>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-purple-500 rounded-full" 
+                       style={{ width: `${soilRequirements.potassium.value}%` }}></div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Level: <span className="font-medium">{soilRequirements.potassium.level}</span>
+                  </p>
+                  <p className="text-xs font-medium">{soilRequirements.potassium.value}%</p>
+                </div>
+              </div>
+              
+              {/* Moisture */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  <Badge variant="outline" className="h-6 px-2 font-semibold">H₂O</Badge>
+                  Moisture
+                </h3>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-cyan-500 rounded-full" 
+                       style={{ width: `${soilRequirements.moisture.value}%` }}></div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-muted-foreground">
+                    Level: <span className="font-medium">{soilRequirements.moisture.level}</span>
+                  </p>
+                  <p className="text-xs font-medium">{soilRequirements.moisture.value}%</p>
+                </div>
+              </div>
+            </div>
+            
+            <Separator className="my-6" />
+            
+            <div className="rounded-lg bg-primary/5 p-4">
+              <h3 className="font-medium mb-2">Recommendations</h3>
+              <ul className="space-y-2 text-sm">
+                {soilRequirements.ph.optimal < 6.0 && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-blue-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-700">
+                        <path d="m5 12 7-7 7 7"></path><path d="M12 19V5"></path>
+                      </svg>
+                    </div>
+                    <span>Use acidic soil amendments like peat moss or elemental sulfur</span>
+                  </li>
+                )}
+                {soilRequirements.ph.optimal > 7.0 && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-purple-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-700">
+                        <path d="M19 12H5"></path><path d="M5 12h14"></path>
+                      </svg>
+                    </div>
+                    <span>Add lime or wood ash to increase soil pH</span>
+                  </li>
+                )}
+                {soilRequirements.nitrogen.level === 'High' && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-blue-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-700">
+                        <path d="M12 5v14"></path><path d="M19 12H5"></path>
+                      </svg>
+                    </div>
+                    <span>Use high-nitrogen fertilizers like blood meal or composted manure</span>
+                  </li>
+                )}
+                {soilRequirements.phosphorus.level === 'High' && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-orange-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-orange-700">
+                        <path d="M12 5v14"></path><path d="M19 12H5"></path>
+                      </svg>
+                    </div>
+                    <span>Add bone meal or rock phosphate for higher phosphorus levels</span>
+                  </li>
+                )}
+                {soilRequirements.potassium.level === 'High' && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-purple-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-700">
+                        <path d="M12 5v14"></path><path d="M19 12H5"></path>
+                      </svg>
+                    </div>
+                    <span>Use wood ash or a potassium-rich fertilizer for higher potassium</span>
+                  </li>
+                )}
+                {soilRequirements.moisture.level === 'High' && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-cyan-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-cyan-700">
+                        <path d="M12 19V5"></path><path d="M5 12h14"></path>
+                      </svg>
+                    </div>
+                    <span>Keep soil consistently moist and add organic mulch</span>
+                  </li>
+                )}
+                {soilRequirements.moisture.level === 'Low' && (
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-amber-100 p-1 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-700">
+                        <path d="m19 12-7 7-7-7"></path><path d="M12 5v14"></path>
+                      </svg>
+                    </div>
+                    <span>Allow soil to dry between waterings and consider adding sand for better drainage</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </CardContent>
+          <CardFooter className="bg-muted/20 flex flex-col sm:flex-row items-start sm:items-center gap-2 text-xs text-muted-foreground">
+            <p>
+              <span className="font-medium">Note:</span> These are estimated requirements based on plant taxonomy. 
+              Individual plant needs may vary based on variety, growing conditions, and other factors.
+            </p>
+          </CardFooter>
+        </Card>
+      )}
+    </div>
+  );
+}

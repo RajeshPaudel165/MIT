@@ -1,0 +1,192 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* FloraFriend Design System - Minimalist plant monitoring app */
+
+@layer base {
+  :root {
+    /* FloraFriend Color Palette */
+    --background: 48 55% 94%; /* Soft beige #F5F5DC */
+    --foreground: 0 0% 15%; /* Dark gray for text */
+
+    --card: 0 0% 100%; /* Pure white for cards */
+    --card-foreground: 0 0% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 15%;
+
+    /* Earthy green primary color */
+    --primary: 82 33% 29%; /* #556B2F */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 48 20% 90%;
+    --secondary-foreground: 0 0% 15%;
+
+    --muted: 48 30% 88%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 82 33% 29%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 48 20% 85%;
+    --input: 0 0% 100%;
+    --ring: 82 33% 29%;
+
+    /* Plant status colors */
+    --healthy: 120 60% 50%;
+    --needs-attention: 45 100% 60%;
+    --critical: 0 70% 55%;
+    
+    /* Nutrient level colors */
+    --nutrient-low: 0 70% 55%;
+    --nutrient-optimal: 120 60% 50%;
+    --nutrient-high: 45 100% 60%;
+    
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(82 33% 29%), hsl(82 40% 35%));
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(48 30% 96%));
+    --gradient-nutrient: linear-gradient(90deg, hsl(var(--nutrient-low)), hsl(var(--nutrient-optimal)));
+    
+    /* Shadows */
+    --shadow-card: 0 4px 20px -2px hsl(82 33% 29% / 0.1);
+    --shadow-button: 0 2px 10px -2px hsl(82 33% 29% / 0.2);
+    --shadow-float: 0 8px 30px -4px hsl(82 33% 29% / 0.15);
+    
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+}
+
+@layer components {
+  /* Plant Status Indicators */
+  .status-healthy {
+    @apply text-emerald-600 bg-emerald-50;
+  }
+  
+  .status-needs-attention {
+    @apply text-yellow-600 bg-yellow-50;
+  }
+  
+  .status-critical {
+    @apply text-red-600 bg-red-50;
+  }
+  
+  /* Nutrient Gauge Styles */
+  .nutrient-gauge {
+    @apply relative w-full h-4 bg-gray-200 rounded-full overflow-hidden;
+  }
+  
+  .nutrient-fill {
+    @apply h-full rounded-full transition-all duration-500 ease-out;
+  }
+  
+  .nutrient-low .nutrient-fill {
+    @apply bg-red-500;
+  }
+  
+  .nutrient-optimal .nutrient-fill {
+    @apply bg-emerald-500;
+  }
+  
+  .nutrient-high .nutrient-fill {
+    @apply bg-yellow-500;
+  }
+  
+  /* FloraFriend specific animations */
+  @keyframes gentle-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+  
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-gentle-bounce {
+    animation: gentle-bounce 2s ease-in-out infinite;
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out;
+  }
+}
