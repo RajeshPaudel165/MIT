@@ -70,16 +70,30 @@ export default function PlantReport({ plant, aiResult }: PlantReportProps) {
   };
 
   // Function to format date in a more human-readable format
-  const formatDetailedDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
-  };
+ const formatTimestamp = (timestamp: Date | Timestamp | number | string | null | undefined): string => {
+  if (!timestamp) return 'Unknown';
+  if (timestamp instanceof Date) return timestamp.toLocaleString();
+  if (typeof timestamp === 'number') return new Date(timestamp).toLocaleString();
+  if (typeof timestamp === 'string') return new Date(timestamp).toLocaleString();
+  
+  // Handle Firestore Timestamp objects
+  if (timestamp && typeof timestamp === 'object') {
+    // Check if it's a Firestore Timestamp with seconds property
+    if ('seconds' in timestamp && typeof timestamp.seconds === 'number') {
+      return new Date(timestamp.seconds * 1000).toLocaleString();
+    }
+    // Check if it has a toDate method (Firestore Timestamp)
+    if ('toDate' in timestamp && typeof timestamp.toDate === 'function') {
+      try {
+        return timestamp.toDate().toLocaleString();
+      } catch (error) {
+        console.error('Error calling toDate():', error);
+      }
+    }
+  }
+  
+  return 'Invalid Date';
+};
 
   // Calculate days since added
   const daysSinceAdded = Math.floor((new Date().getTime() - plant.dateAdded.getTime()) / (1000 * 60 * 60 * 24));
@@ -240,7 +254,7 @@ export default function PlantReport({ plant, aiResult }: PlantReportProps) {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Plant Health Report</h1>
         <p className="text-lg text-gray-600">{plant.commonName}</p>
         <p className="text-sm text-gray-500 italic">{plant.scientificName}</p>
-        <p className="text-xs text-gray-400 mt-2">Generated on {formatDetailedDate(new Date())}</p>
+        <p className="text-xs text-gray-400 mt-2">Generated on {formatTimestamp(new Date())}</p>
       </div>
 
       {/* Plant Overview Section */}
@@ -287,7 +301,7 @@ export default function PlantReport({ plant, aiResult }: PlantReportProps) {
             
             <div>
               <h3 className="font-medium text-gray-900">Date Added</h3>
-              <p className="text-gray-600">{formatDetailedDate(plant.dateAdded)}</p>
+              <p className="text-gray-600">{formatDate(plant.dateAdded)}</p>
             </div>
             
             <div>
@@ -479,7 +493,7 @@ export default function PlantReport({ plant, aiResult }: PlantReportProps) {
         {soilData && (
           <div className="mt-4 bg-gray-50 p-3 rounded-lg">
             <p className="text-xs text-gray-600">
-              Last soil reading: {soilData.timestamp ? new Date(soilData.timestamp.toDate()).toLocaleString() : 'Unknown'}
+              Last soil reading: {formatTimestamp(soilData.timestamp)}
             </p>
           </div>
         )}

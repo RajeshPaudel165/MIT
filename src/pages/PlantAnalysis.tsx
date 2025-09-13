@@ -299,56 +299,121 @@ export const PlantAnalysis: React.FC = () => {
       const imageUrl = `analysis_${Date.now()}_${plant.id}`;
 
       const prompt = `
-        Analyze this photo of a ${plant.commonName} (${plant.scientificName || 'Unknown species'}) plant.
+        You are an expert botanist and organic gardening specialist. Analyze this photo of a ${plant.commonName} (${plant.scientificName || 'Unknown species'}) plant and provide comprehensive, detailed guidance.
         
         Plant details:
         - Common Name: ${plant.commonName}
         - Scientific Name: ${plant.scientificName || 'Unknown'}
+        - Current season: ${new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
         
-        Please provide a comprehensive analysis in the following JSON format:
+        Provide your analysis in this JSON format with DETAILED, COMPREHENSIVE responses (aim for 150-300 words per section):
+        
         {
-          "analysis": "Detailed visual analysis of the plant's health, growth, and any visible issues",
+          "analysis": "Provide a thorough 300+ word visual analysis covering: leaf health (color, texture, spots, edges), stem condition, growth patterns, signs of nutrient deficiencies, pest damage, diseases, environmental stress indicators, and overall plant vitality. Be specific about what you observe.",
+          
           "healthScore": {
             "overall": 85,
             "care": 90,
             "environment": 80,
             "growth": 85,
-            "prediction": "Brief prediction about plant's health trajectory"
+            "prediction": "Detailed 100+ word prediction about the plant's health trajectory over the next 3-6 months, including potential challenges and expected improvements with proper care"
           },
+          
           "insights": [
             {
-              "title": "Insight title",
-              "description": "Detailed description",
+              "title": "Organic Nutrition & Fertilization",
+              "description": "Comprehensive 200+ word guide on organic fertilizers. Recommend specific organic fertilizers like: Fish emulsion (Neptune's Harvest), Kelp meal (Down to Earth), Bone meal for phosphorus, Blood meal for nitrogen, Compost tea recipes, Worm castings application, Rock dust minerals, and organic foliar sprays. Include application rates, timing, and seasonal adjustments.",
               "category": "Photo Analysis",
               "priority": "high",
+              "confidence": 90,
+              "actionItems": ["Mix fish emulsion 1:10 ratio weekly", "Apply kelp meal 1 tbsp per gallon monthly", "Top dress with worm castings quarterly", "Brew compost tea bi-weekly"]
+            },
+            {
+              "title": "Disease & Pest Prevention",
+              "description": "Detailed 150+ word assessment of any visible issues, preventive organic treatments like neem oil, diatomaceous earth, beneficial insects, companion planting suggestions, and natural fungicide recipes",
+              "category": "Disease",
+              "priority": "medium",
               "confidence": 85,
-              "actionItems": ["Action 1", "Action 2"]
+              "actionItems": ["Apply neem oil preventively", "Introduce beneficial insects", "Remove affected foliage", "Improve air circulation"]
+            },
+            {
+              "title": "Soil Health & Composition",
+              "description": "150+ word soil improvement recommendations including organic matter additions, mulching strategies, pH adjustment with organic materials, mycorrhizal fungi inoculation, and soil testing suggestions",
+              "category": "Soil Health",
+              "priority": "high",
+              "confidence": 88,
+              "actionItems": ["Add 2-3 inches organic mulch", "Incorporate compost monthly", "Test soil pH quarterly", "Apply mycorrhizal fungi"]
+            },
+            {
+              "title": "Watering & Environmental Optimization",
+              "description": "Comprehensive 150+ word watering strategy, humidity requirements, light optimization, temperature considerations, and microclimate improvements",
+              "category": "Environment",
+              "priority": "medium",
+              "confidence": 87,
+              "actionItems": ["Deep water 2x weekly", "Monitor soil moisture", "Adjust light exposure", "Maintain proper humidity"]
             }
           ],
+          
           "growthPrediction": {
-            "expectedGrowth": "Description of expected growth",
-            "timeframe": "1-2 months",
-            "factors": ["Factor 1", "Factor 2"],
-            "recommendations": ["Recommendation 1", "Recommendation 2"],
-            "confidence": 80
+            "expectedGrowth": "Detailed 200+ word growth forecast including expected height/spread increases, new leaf production, flowering/fruiting timeline, root development, and seasonal growth patterns",
+            "timeframe": "Next 3-6 months with seasonal considerations",
+            "factors": ["Organic nutrition program", "Soil health improvements", "Environmental optimization", "Seasonal light changes", "Temperature fluctuations", "Water management"],
+            "recommendations": [
+              "Implement bi-weekly organic feeding schedule with fish emulsion and kelp meal",
+              "Apply 3-inch layer of organic mulch to retain moisture and suppress weeds",
+              "Introduce beneficial soil microorganisms through compost tea applications",
+              "Monitor for seasonal pests and apply preventive organic treatments",
+              "Adjust watering frequency based on seasonal temperature changes",
+              "Provide winter protection if needed in your climate zone"
+            ],
+            "confidence": 85
           },
+          
           "carePlan": {
             "weeklyTasks": [
-              {"day": "Monday", "task": "Task description", "importance": "high"}
+              {"day": "Monday", "task": "Check soil moisture levels and water deeply if top 2 inches are dry", "importance": "high"},
+              {"day": "Tuesday", "task": "Apply liquid kelp fertilizer (1 tbsp per gallon) to soil around plant", "importance": "high"},
+              {"day": "Wednesday", "task": "Inspect leaves for pests, diseases, or nutrient deficiencies", "importance": "medium"},
+              {"day": "Thursday", "task": "Remove any dead, yellowing, or diseased foliage", "importance": "medium"},
+              {"day": "Friday", "task": "Apply fish emulsion fertilizer (1:10 ratio) if in growing season", "importance": "high"},
+              {"day": "Saturday", "task": "Check and refresh mulch layer around plant base", "importance": "low"},
+              {"day": "Sunday", "task": "Spray compost tea on leaves and soil (if weather permits)", "importance": "medium"}
             ],
-            "monthlyGoals": ["Goal 1", "Goal 2"],
-            "seasonalAdjustments": ["Adjustment 1", "Adjustment 2"],
-            "emergencyProtocols": ["Protocol 1", "Protocol 2"]
+            "monthlyGoals": [
+              "Deep fertilize with aged compost and worm castings (2-3 inches around base)",
+              "Apply bone meal or rock phosphate for root development (1 tbsp per sq ft)",
+              "Refresh organic mulch layer to maintain 3-inch depth",
+              "Test soil pH and adjust with organic amendments if needed",
+              "Prune dead or crossing branches to improve air circulation",
+              "Apply mycorrhizal fungi inoculation to enhance root health"
+            ],
+            "seasonalAdjustments": [
+              "Spring: Increase nitrogen-rich fertilizers like blood meal, begin weekly feeding schedule",
+              "Summer: Focus on consistent watering, apply cooling mulch, provide afternoon shade if needed", 
+              "Fall: Reduce nitrogen, increase phosphorus/potassium, prepare for dormancy with compost",
+              "Winter: Protect from frost, reduce watering, apply winter mulch protection"
+            ],
+            "emergencyProtocols": [
+              "Yellowing leaves: Check soil drainage, reduce watering, apply iron chelate if needed",
+              "Pest infestation: Apply neem oil spray immediately, introduce beneficial insects",
+              "Disease symptoms: Remove affected parts, improve air circulation, apply copper fungicide",
+              "Wilting despite moist soil: Check for root rot, improve drainage, reduce watering frequency",
+              "Nutrient burn: Flush soil with water, stop fertilizing for 2 weeks, then resume with half strength"
+            ]
           }
         }
         
-        Focus on:
-        - Visual health indicators (leaf color, shape, signs of disease/pests)
-        - Growth patterns and plant structure
-        - Environmental stress indicators
-        - Correlation with soil data if available
-        - Actionable recommendations for care improvement
-        - Specific issues that need immediate attention
+        IMPORTANT REQUIREMENTS:
+        - Each insight description must be 150+ words with specific organic product recommendations
+        - Include exact application rates, timing, and brands when possible
+        - Focus heavily on organic, sustainable, and natural methods
+        - Provide detailed seasonal care instructions
+        - Give specific numeric measurements (tablespoons, inches, ratios)
+        - Include 4-6 detailed insights covering nutrition, disease prevention, soil health, and environment
+        - Make growth predictions specific and timeline-based
+        - Ensure care plan tasks are actionable and include frequency/timing
+        - Base recommendations on visible plant condition in the photo
+        - Include organic product names like Neptune's Harvest, Down to Earth, etc.
       `;
 
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
@@ -368,10 +433,14 @@ export const PlantAnalysis: React.FC = () => {
       const analysisText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No analysis available';
       
       try {
+        console.log('Raw AI response:', analysisText);
+        
         // Extract JSON from the response
         const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
+          console.log('Extracted JSON string:', jsonMatch[0]);
           const analysisJson = JSON.parse(jsonMatch[0]);
+          console.log('Parsed analysis JSON:', analysisJson);
           
           // Set the analysis data
           setPhotoAnalysis(analysisJson.analysis || 'No analysis available');
@@ -398,6 +467,7 @@ export const PlantAnalysis: React.FC = () => {
             plantId: plant.id
           }));
           setAiInsights(insightsData);
+          console.log('Set AI insights:', insightsData);
           
           // Create insights data without the icon function for Firestore
           const insightsForSave = insightsData.map(({ icon, ...insight }) => insight);
@@ -411,6 +481,7 @@ export const PlantAnalysis: React.FC = () => {
             confidence: analysisJson.growthPrediction?.confidence || 0
           };
           setGrowthPrediction(growthData);
+          console.log('Set growth prediction:', growthData);
           
           const carePlanData: CarePlan = {
             weeklyTasks: analysisJson.carePlan?.weeklyTasks || [],
@@ -419,6 +490,7 @@ export const PlantAnalysis: React.FC = () => {
             emergencyProtocols: analysisJson.carePlan?.emergencyProtocols || []
           };
           setCarePlan(carePlanData);
+          console.log('Set care plan:', carePlanData);
           
           // Show saving progress
           toast({
