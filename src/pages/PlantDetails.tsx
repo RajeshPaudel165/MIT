@@ -291,7 +291,7 @@ export default function PlantDetails() {
              <BarChart4 className="h-5 w-5 text-green-600" />
              Plant Disease Detection (AI)
            </h2>
-           <p className="text-muted-foreground mb-2 text-sm">Upload or capture a plant image to analyze for visible diseases using Google Gemini Vision AI.</p>
+           <p className="text-muted-foreground mb-2 text-sm">Upload or capture a plant image to analyze for visible diseases using Claude Vision AI.</p>
            <div className="flex gap-4 mb-4 flex-wrap">
              {/* File input for camera capture */}
              <input

@@ -91,6 +91,22 @@ interface PlantSoilComparisonChartProps {
 }
 
 const PlantSoilComparisonChart: React.FC<PlantSoilComparisonChartProps> = ({ plant }) => {
+  // Plant database from your trained data
+  const plantDatabase = React.useMemo(() => ({
+    // Fruits
+    'apple': { type: 'Fruit', npk: { n: 1, p: 1, k: 1 }, moisture: 59.5, temperature: 18.0, nRange: '0-3', pRange: '0-2', kRange: '0-2', moistureRange: '55.70% - 63.30%', tempRange: '13.20°C - 22.80°C' },
+    'orange': { type: 'Fruit', npk: { n: 3, p: 1, k: 2 }, moisture: 60.0, temperature: 22.0, nRange: '2-4', pRange: '0-2', kRange: '1-3', moistureRange: '56.64% - 63.36%', tempRange: '18.78°C - 25.22°C' },
+    // ... (add all other entries from your trained data here) ...
+  }), []);
+
+  // Plant type defaults based on your training data
+  const plantTypeDefaults = React.useMemo(() => ({
+    'Vegetable': { nRange: [5, 15], pRange: [2, 8], kRange: [3, 10], moistureBase: 70, tempRange: [15, 28] },
+    'Fruit': { nRange: [3, 8], pRange: [2, 6], kRange: [3, 8], moistureBase: 60, tempRange: [18, 26] },
+    'Herb': { nRange: [3, 12], pRange: [2, 8], kRange: [2, 6], moistureBase: 55, tempRange: [16, 25] },
+    'Flower': { nRange: [1, 3], pRange: [1, 3], kRange: [1, 4], moistureBase: 55, tempRange: [17, 26] },
+    'Grain': { nRange: [10, 10], pRange: [10, 10], kRange: [10, 10], moistureBase: 60, tempRange: [10, 10] }
+  }), []);
   const [loading, setLoading] = useState(true);
   const [soilData, setSoilData] = useState<SoilData | null>(null);
   const [soilRequirements, setSoilRequirements] = useState<SoilRequirements | null>(null);
@@ -104,82 +120,97 @@ const PlantSoilComparisonChart: React.FC<PlantSoilComparisonChartProps> = ({ pla
       if (value >= 40) return 'Medium';
       return 'Low';
     };
-
-    // Helper function to get moisture level description
     const getMoistureLevel = (value: number): string => {
       if (value >= 70) return 'High';
       if (value >= 40) return 'Medium';
       return 'Low';
     };
-    
-    // This is a simplified approach - similar to what's in PlantSoilRequirementsSection
-    const wateringScheduleMap: Record<string, number> = {
-      'daily': 70,
-      'weekly': 50,
-      'monthly': 30
-    };
-    
-    const moistureValue = wateringScheduleMap[plantData.wateringSchedule || 'weekly'] || 50;
-    
-    const sunlightMap: Record<string, { n: number, p: number, k: number }> = {
-      'full_sun': { n: 60, p: 50, k: 70 },
-      'part_sun': { n: 50, p: 45, k: 55 },
-      'part_shade': { n: 40, p: 40, k: 45 },
-      'full_shade': { n: 30, p: 30, k: 40 }
-    };
-    
-    const nutrients = sunlightMap[plantData.sunlightPreference || 'full_sun'] || { n: 50, p: 50, k: 50 };
-    
-    // Adjust based on the plant family or genus, inferred from scientific name
-    let phMin = 5.5;
-    let phMax = 7.5;
-    let phOptimal = 6.5;
-    
-    // Try to extract genus from scientific name
-    const genus = plantData.scientificName?.split(' ')[0]?.toLowerCase() || '';
-    
-    // Adjust pH based on genus
-    if (['rhododendron', 'camellia', 'azalea'].includes(genus)) {
-      phMin = 4.5;
-      phMax = 6.0;
-      phOptimal = 5.5;
-    } else if (['lavandula', 'thymus', 'rosmarinus'].includes(genus)) {
-      phMin = 6.5;
-      phMax = 8.0;
-      phOptimal = 7.0;
-    }
-    
-    const requirements: SoilRequirements = {
-      ph: {
-        min: phMin,
-        max: phMax,
-        optimal: phOptimal
-      },
-      nitrogen: {
-        level: getNutrientLevel(nutrients.n),
-        value: nutrients.n
-      },
-      phosphorus: {
-        level: getNutrientLevel(nutrients.p),
-        value: nutrients.p
-      },
-      potassium: {
-        level: getNutrientLevel(nutrients.k),
-        value: nutrients.k
-      },
-      moisture: {
-        level: getMoistureLevel(moistureValue),
-        value: moistureValue
-      },
-      temperature: {
-        min: 15,
-        max: 28,
-        optimal: 22
+
+    // Try to find exact match in database first
+    const plantName = plantData.commonName?.toLowerCase() || '';
+    const scientificName = plantData.scientificName?.toLowerCase() || '';
+    let plantEntry = plantDatabase[plantName] || plantDatabase[scientificName];
+
+    // If no exact match, try partial matching
+    if (!plantEntry) {
+      for (const [key, data] of Object.entries(plantDatabase)) {
+        if (plantName.includes(key) || key.includes(plantName) || 
+            scientificName.includes(key) || key.includes(scientificName)) {
+          plantEntry = data;
+          break;
+        }
       }
-    };
-    
+    }
+
+    let requirements: SoilRequirements;
+    if (plantEntry) {
+      requirements = {
+        ph: {
+          min: plantEntry.type === 'Fruit' && ['blueberry', 'cranberry'].some(name => 
+            plantName.includes(name) || scientificName.includes(name)) ? 4.5 : 6.0,
+          max: plantEntry.type === 'Herb' && ['lavender', 'rosemary'].some(name => 
+            plantName.includes(name) || scientificName.includes(name)) ? 8.0 : 7.5,
+          optimal: plantEntry.type === 'Fruit' && ['blueberry', 'cranberry'].some(name => 
+            plantName.includes(name) || scientificName.includes(name)) ? 5.5 : 6.5
+        },
+        nitrogen: {
+          level: getNutrientLevel(plantEntry.npk.n * 5),
+          value: plantEntry.npk.n * 5
+        },
+        phosphorus: {
+          level: getNutrientLevel(plantEntry.npk.p * 5),
+          value: plantEntry.npk.p * 5
+        },
+        potassium: {
+          level: getNutrientLevel(plantEntry.npk.k * 5),
+          value: plantEntry.npk.k * 5
+        },
+        moisture: {
+          level: getMoistureLevel(plantEntry.moisture),
+          value: plantEntry.moisture
+        },
+        temperature: {
+          min: Math.max(plantEntry.temperature - 5, 10),
+          max: plantEntry.temperature + 5,
+          optimal: plantEntry.temperature
+        }
+      };
+    } else {
+      // Use plant type defaults if no match
+    const plantType = 'Herb';
+      // You can add more sophisticated type inference here if needed
+      const defaults = plantTypeDefaults[plantType];
+      requirements = {
+        ph: {
+          min: 6.0,
+          max: 7.5,
+          optimal: 6.5
+        },
+        nitrogen: {
+          level: getNutrientLevel((defaults.nRange[0] + defaults.nRange[1]) / 2 * 5),
+          value: (defaults.nRange[0] + defaults.nRange[1]) / 2 * 5
+        },
+        phosphorus: {
+          level: getNutrientLevel((defaults.pRange[0] + defaults.pRange[1]) / 2 * 5),
+          value: (defaults.pRange[0] + defaults.pRange[1]) / 2 * 5
+        },
+        potassium: {
+          level: getNutrientLevel((defaults.kRange[0] + defaults.kRange[1]) / 2 * 5),
+          value: (defaults.kRange[0] + defaults.kRange[1]) / 2 * 5
+        },
+        moisture: {
+          level: getMoistureLevel(defaults.moistureBase),
+          value: defaults.moistureBase
+        },
+        temperature: {
+          min: defaults.tempRange[0],
+          max: defaults.tempRange[1],
+          optimal: (defaults.tempRange[0] + defaults.tempRange[1]) / 2
+        }
+      };
+    }
     setSoilRequirements(requirements);
-  }, []);
+  }, [plantDatabase, plantTypeDefaults]);
 
   // Fetch the most recent soil data
   const fetchSoilData = async () => {
@@ -485,19 +516,19 @@ const PlantSoilComparisonChart: React.FC<PlantSoilComparisonChartProps> = ({ pla
           <TabsContent value="nutrients" className="pt-4">
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={nutrientData}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Bar dataKey="current" name="Current Level" fill="#3b82f6" />
-                  <Bar dataKey="required" name="Recommended" fill="#10b981" />
-                  <Bar dataKey="difference" name="Difference" fill="#d1d5db" />
-                </BarChart>
+                  <BarChart
+                    data={nutrientData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis domain={[0, 10]} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Bar dataKey="current" name="Current Level" fill="#3b82f6" />
+                    <Bar dataKey="required" name="Recommended" fill="#10b981" />
+                    <Bar dataKey="difference" name="Difference" fill="#d1d5db" />
+                  </BarChart>
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-muted-foreground mt-4">

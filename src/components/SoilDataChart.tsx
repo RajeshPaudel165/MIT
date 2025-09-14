@@ -46,9 +46,9 @@ const metricConfig = {
   },
   moisture: { 
     min: 0, 
-    max: 100, 
-    optimalMin: 40, 
-    optimalMax: 70, 
+    max: 10, 
+    optimalMin: 4, 
+    optimalMax: 7, 
     unit: '%', 
     label: 'Moisture',
     color: '#82ca9d'
@@ -64,27 +64,27 @@ const metricConfig = {
   },
   nitrogen: { 
     min: 0, 
-    max: 100, 
-    optimalMin: 40, 
-    optimalMax: 80, 
+    max: 10, 
+    optimalMin: 4, 
+    optimalMax: 8, 
     unit: ' ppm', 
     label: 'Nitrogen',
     color: '#0088FE'
   },
   phosphorus: { 
     min: 0, 
-    max: 100, 
-    optimalMin: 30, 
-    optimalMax: 70, 
+    max: 10, 
+    optimalMin: 3, 
+    optimalMax: 7, 
     unit: ' ppm', 
     label: 'Phosphorus',
     color: '#00C49F'
   },
   potassium: { 
     min: 0, 
-    max: 100, 
-    optimalMin: 35, 
-    optimalMax: 75, 
+    max: 10, 
+    optimalMin: 3.5, 
+    optimalMax: 7.5, 
     unit: ' ppm', 
     label: 'Potassium',
     color: '#FFBB28'
@@ -207,7 +207,7 @@ export function SoilDataChart({ historicalData, selectedMetric }: SoilDataChartP
                 dataKey="label"
                 angle={-45}
                 textAnchor="end"
-                height={70}
+                height={7}
                 tick={{ fontSize: 11 }}
                 tickFormatter={(value) => value.split(' ')[0]} // Show only date part by default
                 interval={Math.ceil(chartData.length / 10)} // Show fewer ticks for readability

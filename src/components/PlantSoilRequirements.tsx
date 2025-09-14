@@ -54,6 +54,46 @@ interface PlantIdentificationResult {
 }
 
 export function PlantSoilRequirements() {
+  // Plant database from your trained data
+  const plantDatabase: Record<string, {
+    type: string;
+    npk: { n: number; p: number; k: number };
+    moisture: number;
+    temperature: number;
+    nRange?: string;
+    pRange?: string;
+    kRange?: string;
+    moistureRange?: string;
+    tempRange?: string;
+  }> = {
+    // Fruits
+    'apple': { type: 'Fruit', npk: { n: 1, p: 1, k: 1 }, moisture: 59.5, temperature: 18.0, nRange: '0-3', pRange: '0-2', kRange: '0-2', moistureRange: '55.70% - 63.30%', tempRange: '13.20°C - 22.80°C' },
+    'orange': { type: 'Fruit', npk: { n: 3, p: 1, k: 2 }, moisture: 60.0, temperature: 22.0, nRange: '2-4', pRange: '0-2', kRange: '1-3', moistureRange: '56.64% - 63.36%', tempRange: '18.78°C - 25.22°C' },
+    'lemon': { type: 'Fruit', npk: { n: 6, p: 6, k: 6 }, moisture: 57.5, temperature: 21.0, nRange: '5-7', pRange: '4-8', kRange: '5-7', moistureRange: '53.60% - 61.40%', tempRange: '16.29°C - 25.71°C' },
+    'banana': { type: 'Fruit', npk: { n: 3, p: 1, k: 2 }, moisture: 80.0, temperature: 27.0, nRange: '2-4', pRange: '0-2', kRange: '1-3', moistureRange: '75.83% - 84.17%', tempRange: '23.95°C - 29.05°C' },
+    'mango': { type: 'Fruit', npk: { n: 10, p: 10, k: 10 }, moisture: 60.0, temperature: 27.0, nRange: '8-12', pRange: '8-12', kRange: '9-11', moistureRange: '55.67% - 64.33%', tempRange: '23.75°C - 30.25°C' },
+    'strawberry': { type: 'Fruit', npk: { n: 2, p: 3, k: 6 }, moisture: 64.5, temperature: 20.0, nRange: '0-4', pRange: '1-5', kRange: '4-8', moistureRange: '60.81% - 68.19%', tempRange: '15.87°C - 24.13°C' },
+    'cherry': { type: 'Fruit', npk: { n: 10, p: 10, k: 10 }, moisture: 50.0, temperature: 22.0, nRange: '9-11', pRange: '9-11', kRange: '8-12', moistureRange: '45.47% - 54.53%', tempRange: '17.51°C - 26.49°C' },
+    'peach': { type: 'Fruit', npk: { n: 1, p: 1, k: 1 }, moisture: 60.0, temperature: 22.0, nRange: '0-2', pRange: '0-2', kRange: '0-2', moistureRange: '56.55% - 63.45%', tempRange: '18.25°C - 25.75°C' },
+    'avocado': { type: 'Fruit', npk: { n: 2, p: 1, k: 2 }, moisture: 65.0, temperature: 22.0, nRange: '0-4', pRange: '0-2', kRange: '0-4', moistureRange: '60.36% - 69.64%', tempRange: '17.15°C - 26.85°C' },
+    'grape': { type: 'Fruit', npk: { n: 1, p: 2, k: 3 }, moisture: 52.5, temperature: 18.0, nRange: '0-2', pRange: '1-3', kRange: '2-4', moistureRange: '49.00% - 56.00%', tempRange: '13.90°C - 22.10°C' },
+    // ...existing database...
+  };
+
+  // Plant type defaults based on your training data
+  const plantTypeDefaults: Record<string, {
+    nRange: [number, number];
+    pRange: [number, number];
+    kRange: [number, number];
+    moistureBase: number;
+    tempRange: [number, number];
+  }> = {
+    'Vegetable': { nRange: [5, 15], pRange: [2, 8], kRange: [3, 10], moistureBase: 70, tempRange: [15, 28] },
+    'Fruit': { nRange: [3, 8], pRange: [2, 6], kRange: [3, 8], moistureBase: 60, tempRange: [18, 26] },
+    'Herb': { nRange: [3, 12], pRange: [2, 8], kRange: [2, 6], moistureBase: 55, tempRange: [16, 25] },
+    'Flower': { nRange: [1, 3], pRange: [1, 3], kRange: [1, 4], moistureBase: 55, tempRange: [17, 26] },
+    'Grain': { nRange: [10, 10], pRange: [10, 10], kRange: [10, 10], moistureBase: 60, tempRange: [10, 10] }
+  };
   const { plants, loading: plantsLoading } = usePlants();
   const [selectedPlant, setSelectedPlant] = useState<Plant | null>(null);
   const [soilRequirements, setSoilRequirements] = useState<SoilRequirements | null>(null);
@@ -428,93 +468,105 @@ export function PlantSoilRequirements() {
 
   // Generate more realistic soil requirements from Plant.id results
   const generateSoilRequirements = (plantInfo: PlantIdentificationResult) => {
-    // This function would ideally call another API to get actual soil requirements
-    // For now, we'll generate synthetic data based on the plant's taxonomy
-    
-    // pH adjustments based on plant family
-    let phMin = 5.5;
-    let phMax = 7.5;
-    let phOptimal = 6.5;
-    
-    const family = plantInfo.family.toLowerCase();
-    
-    // Adjust pH based on family
-    if (family.includes('ericaceae')) { // Blueberries, rhododendrons, etc.
-      phMin = 4.5;
-      phMax = 6.0;
-      phOptimal = 5.5;
-    } else if (family.includes('fabaceae')) { // Legumes
-      phMin = 6.0;
-      phMax = 7.5;
-      phOptimal = 6.8;
-    } else if (family.includes('rosaceae')) { // Roses, apples, etc.
-      phMin = 6.0;
-      phMax = 7.5;
-      phOptimal = 6.5;
-    }
-    
-    // Nutrient level adjustments based on genus and family
-    const genus = plantInfo.genus.toLowerCase();
-    
-    // Base values
-    let nitrogenValue = 50;
-    let phosphorusValue = 50;
-    let potassiumValue = 50;
-    let moistureValue = 50;
-    
-    // Adjust nitrogen needs
-    if (family.includes('asteraceae') || family.includes('brassicaceae')) {
-      nitrogenValue = 70; // High nitrogen needs
-    } else if (genus.includes('lavandula') || genus.includes('rosmarinus')) {
-      nitrogenValue = 30; // Low nitrogen needs
-    }
-    
-    // Adjust phosphorus needs
-    if (family.includes('solanaceae') || genus.includes('rosa')) {
-      phosphorusValue = 65; // Higher phosphorus for flowering/fruiting
-    }
-    
-    // Adjust potassium needs
-    if (family.includes('cucurbitaceae') || family.includes('solanaceae')) {
-      potassiumValue = 75; // Higher potassium for fruits
-    }
-    
-    // Adjust moisture needs
-    if (genus.includes('cactus') || genus.includes('aloe') || genus.includes('sedum')) {
-      moistureValue = 20; // Dry conditions
-    } else if (genus.includes('fern') || genus.includes('hydrangea')) {
-      moistureValue = 80; // Moist conditions
-    }
-    
-    const requirements: SoilRequirements = {
-      ph: {
-        min: phMin,
-        max: phMax,
-        optimal: phOptimal
-      },
-      nitrogen: {
-        level: getNutrientLevel(nitrogenValue),
-        value: nitrogenValue
-      },
-      phosphorus: {
-        level: getNutrientLevel(phosphorusValue),
-        value: phosphorusValue
-      },
-      potassium: {
-        level: getNutrientLevel(potassiumValue),
-        value: potassiumValue
-      },
-      moisture: {
-        level: getMoistureLevel(moistureValue),
-        value: moistureValue
-      },
-      temperature: {
-        min: 15,
-        max: 28,
-        optimal: 22
+    // Try to find exact match in database first
+    const plantName = plantInfo.name.toLowerCase();
+    const commonName = plantInfo.commonNames[0]?.toLowerCase() || '';
+    let plantData = plantDatabase[plantName] || plantDatabase[commonName];
+
+    // If no exact match, try partial matching
+    if (!plantData) {
+      for (const [key, data] of Object.entries(plantDatabase)) {
+        if (plantName.includes(key) || key.includes(plantName) || 
+            commonName.includes(key) || key.includes(commonName)) {
+          plantData = data;
+          break;
+        }
       }
-    };
-    
+    }
+
+    let requirements: SoilRequirements;
+    if (plantData) {
+      // Use specific plant data
+      requirements = {
+        ph: {
+          min: plantData.type === 'Fruit' && ['blueberry', 'cranberry'].some(name => 
+            plantName.includes(name) || commonName.includes(name)) ? 4.5 : 6.0,
+          max: plantData.type === 'Herb' && ['lavender', 'rosemary'].some(name => 
+            plantName.includes(name) || commonName.includes(name)) ? 8.0 : 7.5,
+          optimal: plantData.type === 'Fruit' && ['blueberry', 'cranberry'].some(name => 
+            plantName.includes(name) || commonName.includes(name)) ? 5.5 : 6.5
+        },
+        nitrogen: {
+          level: getNutrientLevel(plantData.npk.n * 5), // Scale for display
+          value: plantData.npk.n * 5
+        },
+        phosphorus: {
+          level: getNutrientLevel(plantData.npk.p * 5),
+          value: plantData.npk.p * 5
+        },
+        potassium: {
+          level: getNutrientLevel(plantData.npk.k * 5),
+          value: plantData.npk.k * 5
+        },
+        moisture: {
+          level: getMoistureLevel(plantData.moisture),
+          value: plantData.moisture
+        },
+        temperature: {
+          min: Math.max(plantData.temperature - 5, 10),
+          max: plantData.temperature + 5,
+          optimal: plantData.temperature
+        }
+      };
+    } else {
+      // Use plant type defaults based on family/genus classification
+      let plantType = 'Herb'; // default
+      const family = plantInfo.family.toLowerCase();
+      const genus = plantInfo.genus.toLowerCase();
+      // Classify plant type based on taxonomic information
+      if (family.includes('rosaceae') && (genus.includes('malus') || genus.includes('prunus'))) {
+        plantType = 'Fruit';
+      } else if (family.includes('solanaceae') || family.includes('brassicaceae') || 
+                 family.includes('cucurbitaceae') || family.includes('apiaceae')) {
+        plantType = 'Vegetable';
+      } else if (family.includes('asteraceae') || family.includes('lamiaceae')) {
+        plantType = 'Herb';
+      } else if (family.includes('amaryllidaceae') || genus.includes('allium')) {
+        plantType = 'Vegetable';
+      } else if (plantInfo.name.toLowerCase().includes('flower') || 
+                 family.includes('asteraceae') && genus.includes('helianthus')) {
+        plantType = 'Flower';
+      }
+      const defaults = plantTypeDefaults[plantType];
+      requirements = {
+        ph: {
+          min: family.includes('ericaceae') ? 4.5 : 6.0,
+          max: plantType === 'Herb' ? 7.8 : 7.5,
+          optimal: family.includes('ericaceae') ? 5.5 : 6.5
+        },
+        nitrogen: {
+          level: getNutrientLevel((defaults.nRange[0] + defaults.nRange[1]) / 2 * 5),
+          value: (defaults.nRange[0] + defaults.nRange[1]) / 2 * 5
+        },
+        phosphorus: {
+          level: getNutrientLevel((defaults.pRange[0] + defaults.pRange[1]) / 2 * 5),
+          value: (defaults.pRange[0] + defaults.pRange[1]) / 2 * 5
+        },
+        potassium: {
+          level: getNutrientLevel((defaults.kRange[0] + defaults.kRange[1]) / 2 * 5),
+          value: (defaults.kRange[0] + defaults.kRange[1]) / 2 * 5
+        },
+        moisture: {
+          level: getMoistureLevel(defaults.moistureBase),
+          value: defaults.moistureBase
+        },
+        temperature: {
+          min: defaults.tempRange[0],
+          max: defaults.tempRange[1],
+          optimal: (defaults.tempRange[0] + defaults.tempRange[1]) / 2
+        }
+      };
+    }
     setSoilRequirements(requirements);
   };
 

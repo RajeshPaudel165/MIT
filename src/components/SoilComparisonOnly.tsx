@@ -167,11 +167,11 @@ const SoilComparison: React.FC<SoilComparisonProps> = ({ plant }) => {
     
     // Approximate NPK values based on sunlight needs
     const nutrientValues = {
-      'full_sun': { n: 60, p: 50, k: 70 },
-      'part_sun': { n: 50, p: 45, k: 55 },
-      'part_shade': { n: 40, p: 40, k: 45 },
-      'full_shade': { n: 30, p: 30, k: 40 }
-    }[plant.sunlightPreference || 'full_sun'] || { n: 50, p: 50, k: 50 };
+      'full_sun': { n: 6, p: 5, k: 7 },
+      'part_sun': { n: 5, p: 4, k: 5 },
+      'part_shade': { n: 4, p: 4, k: 4 },
+      'full_shade': { n: 3, p: 3, k: 4 }
+    }[plant.sunlightPreference || 'full_sun'] || { n: 5, p: 5, k: 5 };
     
     // pH based on scientific name/genus
     let pH = { min: 5.5, max: 7.5, optimal: 6.5 };
@@ -261,16 +261,16 @@ const SoilComparison: React.FC<SoilComparisonProps> = ({ plant }) => {
   const environmentData = [
     {
       name: 'pH',
-      current: soilData.ph,
+      current: soilData.ph / 10,
       optimal: requirements.pH.optimal,
       min: requirements.pH.min,
       max: requirements.pH.max
     },
     {
       name: 'Moisture',
-      current: soilData.moisture,
-      required: requirements.moisture.value,
-      difference: soilData.moisture - requirements.moisture.value
+  current: soilData.moisture,
+  required: requirements.moisture.value / 10,
+  difference: soilData.moisture - (requirements.moisture.value * 10)
     }
   ];
   
@@ -389,7 +389,7 @@ const SoilComparison: React.FC<SoilComparisonProps> = ({ plant }) => {
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
+                  <YAxis domain={[0, 10]} />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Bar dataKey="current" name="Current Level" fill="#3b82f6" />
@@ -444,7 +444,7 @@ const SoilComparison: React.FC<SoilComparisonProps> = ({ plant }) => {
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis domain={[0, 100]} />
+                  <YAxis domain={[0, 10]} />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="current" name="Current Moisture" fill="#0ea5e9">

@@ -8,6 +8,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+import threading
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Load environment variables efficiently
 env_path = Path(__file__).parent.parent / '.env'
@@ -15,6 +19,66 @@ load_dotenv(env_path)
 
 app = Flask(__name__)
 CORS(app)
+
+# Motion detection state
+motion_detected_flag = threading.Event()
+
+def send_motion_email(to_email, subject, message):
+    try:
+        gmail_email = os.environ.get('GMAIL_EMAIL')
+        gmail_password = os.environ.get('GMAIL_APP_PASSWORD')
+        if gmail_email and gmail_password:
+            msg = MIMEMultipart('alternative')
+            msg['Subject'] = subject
+            msg['From'] = gmail_email
+            msg['To'] = to_email
+            html_part = MIMEText(message, 'html')
+            msg.attach(html_part)
+            server = smtplib.SMTP("smtp.gmail.com", 587)
+            server.starttls()
+            server.login(gmail_email, gmail_password)
+            server.send_message(msg)
+            server.quit()
+            print(f"✅ Motion alert email sent to: {to_email}")
+            return True
+        else:
+            print(f"📝 Would send motion alert to: {to_email}")
+            return False
+    except Exception as e:
+        print(f"❌ Failed to send motion alert email: {e}")
+        return False
+
+# Threaded function to run motion_detect_pose.py
+def run_motion_detection():
+    script_path = os.path.join(os.path.dirname(__file__), 'motion_detect_pose.py')
+    process = subprocess.Popen([sys.executable, script_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    while True:
+        line = process.stdout.readline()
+        if not line:
+            break
+        if '🎯 Detection:' in line:
+            print('Motion detected:', line.strip())
+            motion_detected_flag.set()
+            # Send email (customize recipient)
+            send_motion_email(
+                to_email=os.environ.get('MOTION_ALERT_EMAIL', 'your@email.com'),
+                subject='Motion Detected!',
+                message=f'<h2>Motion detected in Outdoor Mode!</h2><pre>{line.strip()}</pre>'
+            )
+    process.wait()
+
+@app.route('/motion-detect', methods=['POST'])
+def motion_detect():
+    # Start motion detection in a thread
+    motion_detected_flag.clear()
+    t = threading.Thread(target=run_motion_detection, daemon=True)
+    t.start()
+    return jsonify({'status': 'started'}), 200
+
+@app.route('/motion-status', methods=['GET'])
+def motion_status():
+    detected = motion_detected_flag.is_set()
+    return jsonify({'motion_detected': detected}), 200
 
 # Lazy import weather_monitor to speed up startup
 weather_monitor = None

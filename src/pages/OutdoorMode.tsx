@@ -15,7 +15,35 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useOutdoorMode } from '@/hooks/useOutdoorMode';
 
+// Motion detection integration
+function useMotionDetection() {
+  const [motionActive, setMotionActive] = useState(false);
+  const [motionDetected, setMotionDetected] = useState(false);
+  const [polling, setPolling] = useState(false);
+
+  const startMotionDetection = async () => {
+    await fetch('http://localhost:5001/motion-detect', { method: 'POST' });
+    setMotionActive(true);
+    setPolling(true);
+  };
+
+  React.useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (polling) {
+      interval = setInterval(async () => {
+        const res = await fetch('http://localhost:5001/motion-status');
+        const data = await res.json();
+        setMotionDetected(data.motion_detected);
+      }, 2000);
+    }
+    return () => interval && clearInterval(interval);
+  }, [polling]);
+
+  return { motionActive, motionDetected, startMotionDetection };
+}
+
 export default function OutdoorMode() {
+  const { motionActive, motionDetected, startMotionDetection } = useMotionDetection();
   const { plants } = usePlants();
   // Handler to launch outdoor_mode.py
   const handleOutdoorMode = async () => {
@@ -83,6 +111,11 @@ export default function OutdoorMode() {
           <Button size="sm" className="ml-4" onClick={handleOutdoorMode}>
             Launch Outdoor Mode
           </Button>
+            {motionActive && (
+              <Badge variant="outline" className={motionDetected ? 'bg-red-100 text-red-800 ml-2' : 'bg-green-100 text-green-800 ml-2'}>
+                {motionDetected ? 'Motion Detected!' : 'No Motion'}
+              </Badge>
+            )}
           <Badge variant="outline" className="ml-auto bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
             Garden Management
           </Badge>

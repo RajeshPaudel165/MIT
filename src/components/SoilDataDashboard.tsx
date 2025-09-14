@@ -319,7 +319,7 @@ export function SoilDataDashboard() {
                 {/* pH */}
                 <SoilGauge 
                   title="Soil pH"
-                  value={soilData?.ph || 0}
+                  value={soilData?.ph/10 || 0}
                   minValue={3}
                   maxValue={10}
                   optimalMin={5.5}
@@ -334,10 +334,10 @@ export function SoilDataDashboard() {
                 title="Soil Moisture"
                 value={soilData?.moisture || 0}
                 minValue={0}
-                maxValue={100}
-                optimalMin={40}
-                optimalMax={70}
-                unit="%"
+                maxValue={10}
+                optimalMin={4}
+                optimalMax={7}
+                unit=""
                 description="Water content in soil"
               />
               
@@ -359,9 +359,9 @@ export function SoilDataDashboard() {
                 title="Nitrogen (N)"
                 value={soilData?.nitrogen || 0}
                 minValue={0}
-                maxValue={100}
-                optimalMin={40}
-                optimalMax={80}
+                maxValue={10}
+                optimalMin={4}
+                optimalMax={8}
                 unit=" ppm"
                 description="Essential for leaf growth"
               />
@@ -371,9 +371,9 @@ export function SoilDataDashboard() {
                 title="Phosphorus (P)"
                 value={soilData?.phosphorus || 0}
                 minValue={0}
-                maxValue={100}
-                optimalMin={30}
-                optimalMax={70}
+                maxValue={10}
+                optimalMin={3}
+                optimalMax={7}
                 unit=" ppm"
                 description="Promotes root and flower development"
               />
@@ -383,9 +383,9 @@ export function SoilDataDashboard() {
                 title="Potassium (K)"
                 value={soilData?.potassium || 0}
                 minValue={0}
-                maxValue={100}
-                optimalMin={35}
-                optimalMax={75}
+                maxValue={10}
+                optimalMin={3.5}
+                optimalMax={7.5}
                 unit=" ppm"
                 description="Enhances overall plant strength"
               />
@@ -395,9 +395,9 @@ export function SoilDataDashboard() {
                 title="Conductivity"
                 value={soilData?.conductivity || 0}
                 minValue={0}
-                maxValue={2000}
-                optimalMin={500}
-                optimalMax={1500}
+                maxValue={200}
+                optimalMin={50}
+                optimalMax={150}
                 unit=" μS/cm"
                 description="Indicates dissolved salt content"
               />
