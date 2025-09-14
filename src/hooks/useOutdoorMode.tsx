@@ -4,8 +4,9 @@ import { usePlants } from './usePlants';
 import type { Plant } from './usePlants';
 
 // Google Maps API configuration
-const GOOGLE_MAPS_API_KEY = 'AIzaSyCeS13wcn-5QnDT1W6xEk0I3rAgWCDTSjE';
-const GEMINI_API_KEY = 'AIzaSyDpQtm7WnWXNc1v_Rydlf24vJ9TMtDPdTk';
+
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GOOGLE_MAPS_API_KEY =  import.meta.env.VITE_GOOGLE_MAP_API_KEY;
 
 // Google Maps Geocoding API types
 interface GoogleAddressComponent {
