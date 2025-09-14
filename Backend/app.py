@@ -370,9 +370,13 @@ def launch_outdoor_mode():
         process = subprocess.Popen([sys.executable, script_path], 
                                  stdout=subprocess.PIPE, 
                                  stderr=subprocess.PIPE)
+        # Start automation when Outdoor Mode is launched
+        from automatic_monitoring import automatic_monitor
+        automatic_monitor.monitor_motion_and_alert(camera_index=0, motion_threshold=30)
+        automatic_monitor.start_monitoring()
         return jsonify({
             'status': 'launched', 
-            'message': 'Outdoor Mode GUI launched',
+            'message': 'Outdoor Mode GUI launched and automation started',
             'mode': 'outdoor',
             'process_id': process.pid
         }), 200
@@ -410,14 +414,6 @@ def list_available_modes():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5001"))
-    
-    # Start automatic monitoring when server starts
-    print("🚀 Starting automatic monitoring system...")
-    from automatic_monitoring import automatic_monitor
-        # Start motion detection and alert automatically
-    automatic_monitor.monitor_motion_and_alert(camera_index=0, motion_threshold=30)
-    automatic_monitor.start_monitoring()
-    
     app.run(host="0.0.0.0", port=port, debug=True)
 
 
