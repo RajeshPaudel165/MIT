@@ -23,6 +23,7 @@ export default function PlantDetails() {
  const [loading, setLoading] = useState(false);
  const [showDisclaimer, setShowDisclaimer] = useState(false);
  const fileInputRef = useRef<HTMLInputElement>(null);
+ const cameraInputRef = useRef<HTMLInputElement>(null);
 
  // Report Modal State
  const [showReportModal, setShowReportModal] = useState(false);
@@ -41,8 +42,117 @@ export default function PlantDetails() {
 
  // Handle camera capture
  const handleCameraCapture = async () => {
-   if (fileInputRef.current) {
-     fileInputRef.current.click();
+   try {
+     // Request camera access (works on desktop/Mac)
+     const stream = await navigator.mediaDevices.getUserMedia({ 
+       video: { 
+         facingMode: 'environment', // Try rear camera first, fallback to any available
+         width: { ideal: 1280 },
+         height: { ideal: 720 }
+       } 
+     });
+     
+     // Create video element to display camera feed
+     const video = document.createElement('video');
+     video.srcObject = stream;
+     video.autoplay = true;
+     video.playsInline = true;
+     
+     // Create modal to show camera interface
+     const modal = document.createElement('div');
+     modal.style.cssText = `
+       position: fixed;
+       top: 0;
+       left: 0;
+       width: 100%;
+       height: 100%;
+       background: rgba(0,0,0,0.9);
+       z-index: 9999;
+       display: flex;
+       flex-direction: column;
+       align-items: center;
+       justify-content: center;
+     `;
+     
+     video.style.cssText = `
+       max-width: 90%;
+       max-height: 70%;
+       border-radius: 10px;
+     `;
+     
+     const buttonsDiv = document.createElement('div');
+     buttonsDiv.style.cssText = `
+       margin-top: 20px;
+       display: flex;
+       gap: 10px;
+     `;
+     
+     const captureBtn = document.createElement('button');
+     captureBtn.textContent = 'Capture Photo';
+     captureBtn.style.cssText = `
+       background: #4CAF50;
+       color: white;
+       border: none;
+       padding: 12px 20px;
+       border-radius: 5px;
+       cursor: pointer;
+       font-size: 16px;
+     `;
+     
+     const cancelBtn = document.createElement('button');
+     cancelBtn.textContent = 'Cancel';
+     cancelBtn.style.cssText = `
+       background: #f44336;
+       color: white;
+       border: none;
+       padding: 12px 20px;
+       border-radius: 5px;
+       cursor: pointer;
+       font-size: 16px;
+     `;
+     
+     // Handle capture
+     captureBtn.onclick = () => {
+       const canvas = document.createElement('canvas');
+       canvas.width = video.videoWidth;
+       canvas.height = video.videoHeight;
+       const ctx = canvas.getContext('2d');
+       ctx?.drawImage(video, 0, 0);
+       
+       canvas.toBlob((blob) => {
+         if (blob) {
+           const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+           
+           // Handle the captured image - set it as selected image
+           setSelectedImage(file);
+           setAiResult(null);
+           setShowDisclaimer(true);
+         }
+         
+         // Clean up
+         stream.getTracks().forEach(track => track.stop());
+         document.body.removeChild(modal);
+       }, 'image/jpeg', 0.8);
+     };
+     
+     // Handle cancel
+     cancelBtn.onclick = () => {
+       stream.getTracks().forEach(track => track.stop());
+       document.body.removeChild(modal);
+     };
+     
+     buttonsDiv.appendChild(captureBtn);
+     buttonsDiv.appendChild(cancelBtn);
+     modal.appendChild(video);
+     modal.appendChild(buttonsDiv);
+     document.body.appendChild(modal);
+     
+   } catch (error) {
+     console.error('Camera access failed:', error);
+     // Fallback to file input
+     if (fileInputRef.current) {
+       fileInputRef.current.click();
+     }
    }
  };
 
@@ -183,10 +293,20 @@ export default function PlantDetails() {
            </h2>
            <p className="text-muted-foreground mb-2 text-sm">Upload or capture a plant image to analyze for visible diseases using Google Gemini Vision AI.</p>
            <div className="flex gap-4 mb-4 flex-wrap">
+             {/* File input for camera capture */}
              <input
                type="file"
                accept="image/*"
                capture="environment"
+               style={{ display: 'none' }}
+               ref={cameraInputRef}
+               onChange={handleImageChange}
+             />
+             
+             {/* File input for regular upload */}
+             <input
+               type="file"
+               accept="image/*"
                style={{ display: 'none' }}
                ref={fileInputRef}
                onChange={handleImageChange}

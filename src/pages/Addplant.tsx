@@ -105,6 +105,139 @@ export default function Addplant() {
   const [identificationError, setIdentificationError] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Function to handle camera capture
+  const handleCameraCapture = async () => {
+    try {
+      // Request camera access (works on desktop/Mac)
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Try rear camera first, fallback to any available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      // Create video element to display camera feed
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      
+      // Create modal to show camera interface
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      video.style.cssText = `
+        max-width: 90%;
+        max-height: 70%;
+        border-radius: 10px;
+      `;
+      
+      const buttonsDiv = document.createElement('div');
+      buttonsDiv.style.cssText = `
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      `;
+      
+      const captureBtn = document.createElement('button');
+      captureBtn.textContent = 'Capture Photo';
+      captureBtn.style.cssText = `
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = `
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      // Handle capture
+      captureBtn.onclick = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+            
+            // Handle the captured image
+            setCustomImage(file);
+            
+            // Create image preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              setCustomImagePreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+            
+            toast({
+              title: "Photo captured",
+              description: "Camera photo has been captured successfully.",
+            });
+          }
+          
+          // Clean up
+          stream.getTracks().forEach(track => track.stop());
+          document.body.removeChild(modal);
+        }, 'image/jpeg', 0.8);
+      };
+      
+      // Handle cancel
+      cancelBtn.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+      
+      buttonsDiv.appendChild(captureBtn);
+      buttonsDiv.appendChild(cancelBtn);
+      modal.appendChild(video);
+      modal.appendChild(buttonsDiv);
+      document.body.appendChild(modal);
+      
+    } catch (error) {
+      console.error('Camera access failed:', error);
+      toast({
+        title: "Camera Access Failed",
+        description: "Could not access camera. Please check permissions or use the upload option.",
+        variant: "destructive"
+      });
+      
+      // Fallback to file input
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }
+  };
   const { user } = useAuth();
   const { addPlant } = usePlants();
   const navigate = useNavigate();
@@ -1132,7 +1265,7 @@ export default function Addplant() {
           )}
         </div>
         
-        {/* Hidden file input for image upload */}
+        {/* Hidden file input for regular image upload */}
         <input 
           type="file" 
           ref={fileInputRef}
@@ -1141,7 +1274,32 @@ export default function Addplant() {
           onChange={handleImageChange}
         />
         
-        {/* Custom Plant Modal */}
+        {/* Hidden file input for camera capture */}
+        <input 
+          type="file" 
+          ref={cameraInputRef}
+          className="hidden"
+          accept="image/*"
+          capture="environment"
+          onChange={handleImageChange}
+        />
+        
+        <div className="flex gap-2 mt-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Upload Image
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleCameraCapture}
+          >
+            Take Photo
+          </Button>
+        </div>        {/* Custom Plant Modal */}
         {showCustomPlantModal && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
             <Card className="max-w-md w-full overflow-hidden animate-in fade-in zoom-in">

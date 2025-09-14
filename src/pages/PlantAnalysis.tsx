@@ -100,6 +100,7 @@ export const PlantAnalysis: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('photo-analysis');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Load stored analysis data from Firebase
   const loadStoredAnalysisData = useCallback(async (plantId: string) => {
@@ -276,6 +277,123 @@ export const PlantAnalysis: React.FC = () => {
       const reader = new FileReader();
       reader.onload = (e) => setImagePreview(e.target?.result as string);
       reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle camera capture
+  const handleCameraCapture = async () => {
+    try {
+      // Request camera access (works on desktop/Mac)
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Try rear camera first, fallback to any available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      // Create video element to display camera feed
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      
+      // Create modal to show camera interface
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      video.style.cssText = `
+        max-width: 90%;
+        max-height: 70%;
+        border-radius: 10px;
+      `;
+      
+      const buttonsDiv = document.createElement('div');
+      buttonsDiv.style.cssText = `
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      `;
+      
+      const captureBtn = document.createElement('button');
+      captureBtn.textContent = 'Capture Photo';
+      captureBtn.style.cssText = `
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = `
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      // Handle capture
+      captureBtn.onclick = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+            
+            // Handle the captured image
+            setSelectedImage(file);
+            const reader = new FileReader();
+            reader.onload = (e) => setImagePreview(e.target?.result as string);
+            reader.readAsDataURL(file);
+          }
+          
+          // Clean up
+          stream.getTracks().forEach(track => track.stop());
+          document.body.removeChild(modal);
+        }, 'image/jpeg', 0.8);
+      };
+      
+      // Handle cancel
+      cancelBtn.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+      
+      buttonsDiv.appendChild(captureBtn);
+      buttonsDiv.appendChild(cancelBtn);
+      modal.appendChild(video);
+      modal.appendChild(buttonsDiv);
+      document.body.appendChild(modal);
+      
+    } catch (error) {
+      console.error('Camera access failed:', error);
+      // Fallback to file input
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
     }
   };
 
@@ -752,14 +870,44 @@ export const PlantAnalysis: React.FC = () => {
                       )}
                     </div>
                     
+                    {/* File input for regular upload */}
                     <input
                       ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                    
+                    {/* File input for camera capture */}
+                    <input
+                      ref={cameraInputRef}
                       type="file"
                       accept="image/*"
                       capture="environment"
                       onChange={handleFileSelect}
                       className="hidden"
                     />
+                    
+                    {/* Upload and Camera buttons */}
+                    <div className="flex gap-2 justify-center">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex items-center gap-2"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload Image
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={handleCameraCapture}
+                        className="flex items-center gap-2"
+                      >
+                        <Camera className="h-4 w-4" />
+                        Take Photo
+                      </Button>
+                    </div>
                     
                     <Button
                       onClick={analyzePhotoWithAI}

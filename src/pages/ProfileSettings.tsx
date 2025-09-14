@@ -25,6 +25,7 @@ import {
   Moon, 
   Sun, 
   Upload, 
+  Camera,
   X, 
   AlertTriangle,
   Database,
@@ -62,6 +63,7 @@ export default function ProfileSettings() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>({
     darkMode: false,
@@ -168,6 +170,166 @@ export default function ProfileSettings() {
   const triggerFileInput = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
+    }
+  };
+
+  // Handle camera capture
+  const handleCameraCapture = async () => {
+    try {
+      // Request camera access (works on desktop/Mac)
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user', // Use front camera for profile photos
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      // Create video element to display camera feed
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      
+      // Create modal to show camera interface
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      video.style.cssText = `
+        max-width: 90%;
+        max-height: 70%;
+        border-radius: 10px;
+      `;
+      
+      const buttonsDiv = document.createElement('div');
+      buttonsDiv.style.cssText = `
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      `;
+      
+      const captureBtn = document.createElement('button');
+      captureBtn.textContent = 'Capture Photo';
+      captureBtn.style.cssText = `
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = `
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      // Handle capture
+      captureBtn.onclick = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0);
+        
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+            
+            // Handle the captured image directly (same logic as handleImageUpload)
+            if (file.size > 5 * 1024 * 1024) { // 5MB limit
+              toast({
+                title: "File too large",
+                description: "Please select an image under 5MB",
+                variant: "destructive"
+              });
+              return;
+            }
+            
+            if (!file.type.startsWith('image/')) {
+              toast({
+                title: "Invalid file type",
+                description: "Please select an image file",
+                variant: "destructive"
+              });
+              return;
+            }
+            
+            setIsUploading(true);
+            setUploadProgress(10);
+            
+            try {
+              const downloadURL = await uploadProfileImage(file);
+              setPhotoURL(downloadURL);
+              setUploadProgress(100);
+              
+              toast({
+                title: "Photo captured and uploaded",
+                description: "Your profile image has been updated"
+              });
+            } catch (error: unknown) {
+              console.error("Error in camera capture upload:", error);
+              const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+              toast({
+                title: "Error uploading photo",
+                description: errorMessage,
+                variant: "destructive"
+              });
+            } finally {
+              setIsUploading(false);
+            }
+          }
+          
+          // Clean up
+          stream.getTracks().forEach(track => track.stop());
+          document.body.removeChild(modal);
+        }, 'image/jpeg', 0.8);
+      };
+      
+      // Handle cancel
+      cancelBtn.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+      
+      buttonsDiv.appendChild(captureBtn);
+      buttonsDiv.appendChild(cancelBtn);
+      modal.appendChild(video);
+      modal.appendChild(buttonsDiv);
+      document.body.appendChild(modal);
+      
+    } catch (error) {
+      console.error('Camera access failed:', error);
+      toast({
+        title: "Camera Access Failed",
+        description: "Could not access camera. Please check permissions or use the upload option.",
+        variant: "destructive"
+      });
+      
+      // Fallback to file input
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
     }
   };
   
@@ -388,7 +550,7 @@ export default function ProfileSettings() {
                 Manage your account settings and preferences
               </p>
             </div>
-            {/* Hidden file input */}
+            {/* Hidden file input for regular upload */}
             <input
               type="file"
               ref={fileInputRef}
@@ -397,6 +559,18 @@ export default function ProfileSettings() {
               className="hidden"
               aria-label="Upload profile image"
               id="profile-image-upload"
+            />
+            
+            {/* Hidden file input for camera capture */}
+            <input
+              type="file"
+              ref={cameraInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              capture="user"
+              className="hidden"
+              aria-label="Capture profile image"
+              id="profile-camera-capture"
             />
           </div>
           
@@ -489,6 +663,18 @@ export default function ProfileSettings() {
                         >
                           <Upload className="h-4 w-4" />
                           {isUploading ? `Uploading (${uploadProgress}%)` : "Upload new image"}
+                        </Button>
+                        
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm" 
+                          className="flex items-center gap-2"
+                          onClick={handleCameraCapture}
+                          disabled={isUploading}
+                        >
+                          <Camera className="h-4 w-4" />
+                          Take Photo
                         </Button>
                         
                         {photoURL && (

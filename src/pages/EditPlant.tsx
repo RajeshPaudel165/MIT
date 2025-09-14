@@ -41,6 +41,7 @@ export default function EditPlant() {
   });
   const [originalImage, setOriginalImage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const { getPlantById, updatePlant, deletePlant } = usePlants();
   const navigate = useNavigate();
@@ -138,6 +139,138 @@ export default function EditPlant() {
         title: "Image uploaded",
         description: "Custom image has been added and will be used for this plant.",
       });
+    }
+  };
+
+  // Function to handle camera capture
+  const handleCameraCapture = async () => {
+    try {
+      // Request camera access (works on desktop/Mac)
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Try rear camera first, fallback to any available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      // Create video element to display camera feed
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.autoplay = true;
+      video.playsInline = true;
+      
+      // Create modal to show camera interface
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      `;
+      
+      video.style.cssText = `
+        max-width: 90%;
+        max-height: 70%;
+        border-radius: 10px;
+      `;
+      
+      const buttonsDiv = document.createElement('div');
+      buttonsDiv.style.cssText = `
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+      `;
+      
+      const captureBtn = document.createElement('button');
+      captureBtn.textContent = 'Capture Photo';
+      captureBtn.style.cssText = `
+        background: #4CAF50;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = `
+        background: #f44336;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+      `;
+      
+      // Handle capture
+      captureBtn.onclick = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(video, 0, 0);
+        
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+            
+            // Handle the captured image
+            setCustomImage(file);
+            
+            // Create image preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              setCustomImagePreview(e.target?.result as string);
+            };
+            reader.readAsDataURL(file);
+            
+            toast({
+              title: "Photo captured",
+              description: "Camera photo has been captured successfully.",
+            });
+          }
+          
+          // Clean up
+          stream.getTracks().forEach(track => track.stop());
+          document.body.removeChild(modal);
+        }, 'image/jpeg', 0.8);
+      };
+      
+      // Handle cancel
+      cancelBtn.onclick = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.body.removeChild(modal);
+      };
+      
+      buttonsDiv.appendChild(captureBtn);
+      buttonsDiv.appendChild(cancelBtn);
+      modal.appendChild(video);
+      modal.appendChild(buttonsDiv);
+      document.body.appendChild(modal);
+      
+    } catch (error) {
+      console.error('Camera access failed:', error);
+      toast({
+        title: "Camera Access Failed",
+        description: "Could not access camera. Please check permissions or use the upload option.",
+        variant: "destructive"
+      });
+      
+      // Fallback to file input
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
     }
   };
 
@@ -363,7 +496,17 @@ export default function EditPlant() {
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <Camera className="h-4 w-4 mr-2" />
-                      Change Image
+                      Upload Image
+                    </Button>
+                    
+                    <Button 
+                      type="button"
+                      variant="outline" 
+                      size="sm" 
+                      onClick={handleCameraCapture}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Take Photo
                     </Button>
                     
                     {customImagePreview && (
@@ -383,12 +526,22 @@ export default function EditPlant() {
                     )}
                   </div>
                   
-                  {/* Hidden file input */}
+                  {/* Hidden file input for regular upload */}
                   <input
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
                     accept="image/*"
+                    onChange={handleImageChange}
+                  />
+                  
+                  {/* Hidden file input for camera capture */}
+                  <input
+                    type="file"
+                    ref={cameraInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    capture="environment"
                     onChange={handleImageChange}
                   />
                 </div>
