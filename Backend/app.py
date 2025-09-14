@@ -413,6 +413,9 @@ if __name__ == "__main__":
     
     # Start automatic monitoring when server starts
     print("🚀 Starting automatic monitoring system...")
+    from automatic_monitoring import automatic_monitor
+        # Start motion detection and alert automatically
+    automatic_monitor.monitor_motion_and_alert(camera_index=0, motion_threshold=30)
     automatic_monitor.start_monitoring()
     
     app.run(host="0.0.0.0", port=port, debug=True)

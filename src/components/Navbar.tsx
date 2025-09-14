@@ -45,7 +45,7 @@ export function Navbar({ onModeChange, currentMode, showBackButton = false, back
               <Leaf className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold text-foreground">FloraFriend</h1>
+              <h1 className="text-xl font-semibold text-foreground">Bagaicha</h1>
               <p className="text-sm text-muted-foreground">Plant Health Monitor</p>
             </div>
           </Link>
