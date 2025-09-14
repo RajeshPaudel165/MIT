@@ -1,3 +1,4 @@
+import { claudeService } from '@/lib/claudeService';
 import React, { useState, useEffect } from 'react';
 import { Plant } from '@/hooks/usePlants';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,31 @@ interface PlantReportProps {
 export default function PlantReport({ plant, aiResult }: PlantReportProps) {
   const [soilData, setSoilData] = useState<SoilData | null>(null);
   const [soilDataLoading, setSoilDataLoading] = useState(true);
+  const [nutrientAdvice, setNutrientAdvice] = useState<string | null>(null);
+  const [nutrientAdviceLoading, setNutrientAdviceLoading] = useState(false);
+
+  useEffect(() => {
+    if (!soilData) return;
+    setNutrientAdviceLoading(true);
+    const prompt = `Suggest the best nutrients, organic matter, and soil amendments for the following plant based on its real data, excluding moisture. Respond with actionable advice and specific recommendations.\n\nPlant Info:\n- Common Name: ${plant.commonName}\n- Scientific Name: ${plant.scientificName}\n- Cycle: ${plant.cycle}\n- Watering Schedule: ${plant.wateringSchedule}\n- Sunlight Preference: ${plant.sunlightPreference}\n- Soil Moisture Preference: ${plant.soilMoisturePreference}\n\nSoil Data (latest):\n- pH: ${soilData.ph}\n- Nitrogen: ${soilData.nitrogen}\n- Phosphorus: ${soilData.phosphorus}\n- Potassium: ${soilData.potassium}\n- Temperature: ${soilData.temperature}\n- Conductivity: ${soilData.conductivity}`;
+    claudeService.sendMessage([
+      { role: 'user', content: prompt, timestamp: new Date() }
+    ], undefined, 'You are a plant nutrition expert. Only use the provided data except moisture.').then((result) => {
+      if (result && result.toLowerCase().includes('authenticationerror') || result.toLowerCase().includes('invalid x-api-key')) {
+        setNutrientAdvice('Claude API authentication failed. Please check your API key.');
+      } else {
+        setNutrientAdvice(result);
+      }
+    }).catch((err) => {
+      if (err && err.message && err.message.toLowerCase().includes('authenticationerror')) {
+        setNutrientAdvice('Claude API authentication failed. Please check your API key.');
+      } else {
+        setNutrientAdvice('Could not fetch nutrient advice.');
+      }
+    }).finally(() => {
+      setNutrientAdviceLoading(false);
+    });
+  }, [plant, soilData]);
 
   // Fetch real soil data from Firebase
   useEffect(() => {
@@ -543,7 +569,6 @@ export default function PlantReport({ plant, aiResult }: PlantReportProps) {
           <CheckCircle className="h-5 w-5 text-green-600" />
           Care Recommendations
         </h2>
-        
         <div className="space-y-3">
           {recommendations.map((recommendation, index) => (
             <div key={index} className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
@@ -551,6 +576,20 @@ export default function PlantReport({ plant, aiResult }: PlantReportProps) {
               <p className="text-gray-700 text-sm">{recommendation}</p>
             </div>
           ))}
+        </div>
+        {/* Claude API Nutrient Advice Section */}
+        <div className="mt-6">
+          <h3 className="font-medium text-green-900 mb-2 flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-green-700" />
+            AI Nutrient & Organic Matter Advice
+          </h3>
+          {nutrientAdviceLoading ? (
+            <div className="text-gray-500 text-sm">Loading AI advice...</div>
+          ) : nutrientAdvice ? (
+            <div className="bg-green-100 p-3 rounded-lg text-gray-800 text-sm whitespace-pre-line">{nutrientAdvice}</div>
+          ) : (
+            <div className="text-gray-400 text-sm">No advice available.</div>
+          )}
         </div>
       </div>
 
